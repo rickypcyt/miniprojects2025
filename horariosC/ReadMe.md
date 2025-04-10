@@ -17,3 +17,6 @@ Else display error.
 NULL es ausencia de puntero. Es un puntero que no apunta a ninguna direccion.
 
 Y si usas OR que seria ||, hace que si al menos una de las condiciones es verdadera se ejecute la wea
+
+Bueno ahora lo que hay que hacer es imprimir una cadena de texto cuando sean tal hora del dia
+Pero el programa debe saber contar y debe saber que dia es hoy
