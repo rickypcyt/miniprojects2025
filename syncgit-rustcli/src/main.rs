@@ -29,17 +29,17 @@ fn find_all_git_repos(root_dir: &Path) -> Vec<PathBuf> {
 
     let mut repos = Vec::new();
     for entry in WalkDir::new(root_dir)
-        .max_depth(3) // Limitar la profundidad de búsqueda
+        .max_depth(4) // Aumentamos un poco la profundidad
         .into_iter()
         .filter_entry(|e| {
-            // Ignorar directorios ocultos y node_modules
-            !e.file_name().to_string_lossy().starts_with('.') &&
-            e.file_name().to_string_lossy() != "node_modules"
+            // Ignorar directorios ocultos (excepto .git) y node_modules
+            let name = e.file_name().to_string_lossy();
+            (name != ".git" && !name.starts_with('.')) && name != "node_modules"
         })
         .filter_map(|e| e.ok())
     {
         if entry.file_type().is_dir() && entry.path().join(".git").exists() {
-            repos.push(entry.path().parent().unwrap().to_path_buf());
+            repos.push(entry.path().to_path_buf());
         }
         pb.tick();
     }
