@@ -1,2 +1,3 @@
 syncgit-rustcli/target/
 syncgit-rustcli/target/debug/syncgit_cli
+syncgit-rustcli/target/release/syncgit_cli

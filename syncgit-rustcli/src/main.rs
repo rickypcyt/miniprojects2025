@@ -115,7 +115,17 @@ fn display_dashboard(repos_status: &[RepoStatus], show_all: bool) {
             );
 
             let status_text = if needs_attention {
-                format!("{} {}", status_icons, "Necesita atención".yellow().to_string())
+                let mut details = Vec::new();
+                if status.needs_push {
+                    details.push("Commits pendientes de push".yellow().to_string());
+                }
+                if status.needs_pull {
+                    details.push("Cambios remotos pendientes de pull".yellow().to_string());
+                }
+                if status.has_changes {
+                    details.push("Cambios locales sin commitear".yellow().to_string());
+                }
+                format!("{} {}", status_icons, details.join(", "))
             } else {
                 "✅ Sincronizado".green().to_string()
             };
@@ -127,6 +137,35 @@ fn display_dashboard(repos_status: &[RepoStatus], show_all: bool) {
                 status.branch.cyan(),
                 status_text
             );
+
+            // Mostrar detalles adicionales para repos que necesitan atención
+            if needs_attention {
+                if status.has_changes {
+                    if let Ok(changes) = run_git_command(&status.path, &["status", "-s"]) {
+                        println!("   📋 Cambios pendientes:");
+                        for line in changes.lines() {
+                            println!("      {}", line);
+                        }
+                    }
+                }
+                if status.needs_push {
+                    if let Ok(commits) = run_git_command(&status.path, &["log", "@{u}..HEAD", "--oneline"]) {
+                        println!("   📤 Commits pendientes de push:");
+                        for line in commits.lines() {
+                            println!("      {}", line);
+                        }
+                    }
+                }
+                if status.needs_pull {
+                    if let Ok(commits) = run_git_command(&status.path, &["log", "HEAD..@{u}", "--oneline"]) {
+                        println!("   📥 Commits pendientes de pull:");
+                        for line in commits.lines() {
+                            println!("      {}", line);
+                        }
+                    }
+                }
+                println!(); // Línea en blanco para separar repositorios
+            }
             displayed += 1;
         }
     }
@@ -258,7 +297,16 @@ fn show_menu() -> Result<(), Box<dyn Error>> {
                                     .collect();
                                 
                                 if index > 0 && index <= displayed_repos.len() {
-                                    sync_repository(&displayed_repos[index - 1].path)?;
+                                    let repo_path = &displayed_repos[index - 1].path;
+                                    sync_repository(repo_path)?;
+                                    
+                                    // Actualizar el estado del repositorio después de sincronizar
+                                    if let Ok(new_status) = check_repo_status(repo_path) {
+                                        // Encontrar y actualizar el repositorio en la lista
+                                        if let Some(pos) = repos_status.iter().position(|s| s.path == *repo_path) {
+                                            repos_status[pos] = new_status;
+                                        }
+                                    }
                                 } else {
                                     println!("❌ Número de repositorio inválido");
                                 }
