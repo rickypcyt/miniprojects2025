@@ -4,6 +4,8 @@ use std::{
     process::Command,
 };
 use chrono;
+use walkdir::WalkDir;
+use indicatif::{ProgressBar, ProgressStyle};
 
 fn find_git_repo(current_dir: &Path) -> Option<PathBuf> {
     let mut dir = current_dir.to_path_buf();
@@ -14,6 +16,36 @@ fn find_git_repo(current_dir: &Path) -> Option<PathBuf> {
         dir = dir.parent()?.to_path_buf();
     }
     None
+}
+
+fn find_all_git_repos(root_dir: &Path) -> Vec<PathBuf> {
+    let pb = ProgressBar::new_spinner();
+    pb.set_style(
+        ProgressStyle::default_spinner()
+            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+            .template("{spinner:.blue} {msg}").unwrap()
+    );
+    pb.set_message("Buscando repositorios...");
+
+    let mut repos = Vec::new();
+    for entry in WalkDir::new(root_dir)
+        .max_depth(3) // Limitar la profundidad de búsqueda
+        .into_iter()
+        .filter_entry(|e| {
+            // Ignorar directorios ocultos y node_modules
+            !e.file_name().to_string_lossy().starts_with('.') &&
+            e.file_name().to_string_lossy() != "node_modules"
+        })
+        .filter_map(|e| e.ok())
+    {
+        if entry.file_type().is_dir() && entry.path().join(".git").exists() {
+            repos.push(entry.path().parent().unwrap().to_path_buf());
+        }
+        pb.tick();
+    }
+    
+    pb.finish_with_message("Búsqueda completada");
+    repos
 }
 
 fn run_git_command(repo_path: &Path, args: &[&str]) -> Result<String, Box<dyn Error>> {
@@ -30,10 +62,21 @@ fn run_git_command(repo_path: &Path, args: &[&str]) -> Result<String, Box<dyn Er
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    // Encontrar y mostrar todos los repositorios en el directorio raíz
+    let home_dir = dirs::home_dir().expect("No se pudo encontrar el directorio home");
+    println!("🔍 Buscando repositorios Git en {}...", home_dir.display());
+    
+    let all_repos = find_all_git_repos(&home_dir);
+    println!("\n📚 Repositorios encontrados: {}", all_repos.len());
+    for (i, repo) in all_repos.iter().enumerate() {
+        println!("  {}. {}", i + 1, repo.display());
+    }
+    
+    // Proceder con la sincronización del repositorio actual
     let current_dir = std::env::current_dir()?;
     
     if let Some(repo_path) = find_git_repo(&current_dir) {
-        println!("📂 Repositorio encontrado: {}", repo_path.display());
+        println!("\n📂 Repositorio actual: {}", repo_path.display());
         
         // Fetch changes
         println!("⏳ Obteniendo cambios remotos...");
