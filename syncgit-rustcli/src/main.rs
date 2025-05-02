@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
+use chrono;
 
 fn find_git_repo(current_dir: &Path) -> Option<PathBuf> {
     let mut dir = current_dir.to_path_buf();
@@ -15,84 +16,44 @@ fn find_git_repo(current_dir: &Path) -> Option<PathBuf> {
     None
 }
 
+fn run_git_command(repo_path: &Path, args: &[&str]) -> Result<String, Box<dyn Error>> {
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(repo_path)
+        .output()?;
+    
+    if !output.status.success() {
+        return Err(format!("Error: {}", String::from_utf8_lossy(&output.stderr)).into());
+    }
+    
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let current_dir = std::env::current_dir()?;
     
     if let Some(repo_path) = find_git_repo(&current_dir) {
         println!("📂 Repositorio encontrado: {}", repo_path.display());
         
-        // Mostrar estado
-        let status = Command::new("git")
-            .arg("status")
-            .current_dir(&repo_path)
-            .output()?;
-        println!("{}", String::from_utf8_lossy(&status.stdout));
+        // Fetch changes
+        println!("⏳ Obteniendo cambios remotos...");
+        run_git_command(&repo_path, &["fetch", "origin"])?;
         
-        // Verificar si hay cambios para commit
-        let has_changes = !Command::new("git")
-            .arg("diff")
-            .arg("--quiet")
-            .current_dir(&repo_path)
-            .status()?
-            .success();
-        
-        if has_changes {
-            // Hacer commit con el mensaje proporcionado
-            let args: Vec<String> = std::env::args().collect();
-            if args.len() < 2 {
-                println!("❌ Error: Debes proporcionar un mensaje de commit");
-                return Ok(());
-            }
-            
-            let message = &args[1];
-            println!("⏳ Haciendo commit...");
-            let commit = Command::new("git")
-                .arg("commit")
-                .arg("-am")
-                .arg(message)
-                .current_dir(&repo_path)
-                .output()?;
-            
-            if !commit.status.success() {
-                println!("❌ Error al hacer commit: {}", String::from_utf8_lossy(&commit.stderr));
-                return Ok(());
-            }
-            println!("✅ Commit realizado");
-        } else {
-            println!("✅ No hay cambios para commit");
+        // Check for unstaged changes
+        let status = run_git_command(&repo_path, &["status", "--porcelain"])?;
+        if !status.is_empty() {
+            println!("📝 Hay cambios sin commitear, haciendo commit automático...");
+            run_git_command(&repo_path, &["add", "."])?;
+            run_git_command(&repo_path, &["commit", "-m", &format!("Auto-sync: {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"))])?;
         }
         
-        // Sincronizar
-        println!("⏳ Sincronizando...");
-        let fetch = Command::new("git")
-            .arg("fetch")
-            .current_dir(&repo_path)
-            .output()?;
+        // Pull with rebase
+        println!("⏳ Actualizando cambios locales...");
+        run_git_command(&repo_path, &["pull", "--rebase", "origin"])?;
         
-        if !fetch.status.success() {
-            println!("❌ Error al hacer fetch: {}", String::from_utf8_lossy(&fetch.stderr));
-            return Ok(());
-        }
-        
-        let pull = Command::new("git")
-            .arg("pull")
-            .current_dir(&repo_path)
-            .output()?;
-        
-        if !pull.status.success() {
-            println!("❌ Error al hacer pull: {}", String::from_utf8_lossy(&pull.stderr));
-            return Ok(());
-        }
-        
-        let push = Command::new("git")
-            .arg("push")
-            .current_dir(&repo_path)
-            .output()?;
-        
-        if !push.status.success() {
-            println!("❌ Error al hacer push: {}", String::from_utf8_lossy(&push.stderr));
-            return Ok(());
-        }
+        // Push changes
+        println!("⏳ Subiendo cambios...");
+        run_git_command(&repo_path, &["push", "origin"])?;
         
         println!("✅ Sincronización completada");
     } else {
