@@ -1,0 +1,11 @@
+/home/ricky/coding/miniprojects/syncgit-rustcli/target/release/deps/liblitemap-37dd5096e087eeb4.rmeta: /home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/lib.rs /home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/map.rs /home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/store/mod.rs /home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/store/slice_impl.rs /home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/store/vec_impl.rs
+
+/home/ricky/coding/miniprojects/syncgit-rustcli/target/release/deps/liblitemap-37dd5096e087eeb4.rlib: /home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/lib.rs /home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/map.rs /home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/store/mod.rs /home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/store/slice_impl.rs /home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/store/vec_impl.rs
+
+/home/ricky/coding/miniprojects/syncgit-rustcli/target/release/deps/litemap-37dd5096e087eeb4.d: /home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/lib.rs /home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/map.rs /home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/store/mod.rs /home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/store/slice_impl.rs /home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/store/vec_impl.rs
+
+/home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/lib.rs:
+/home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/map.rs:
+/home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/store/mod.rs:
+/home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/store/slice_impl.rs:
+/home/ricky/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.7.5/src/store/vec_impl.rs:
