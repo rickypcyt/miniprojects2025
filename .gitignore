@@ -1,1 +1,2 @@
-./syncgit-rustcli/target/
+syncgit-rustcli/target/
+syncgit-rustcli/target/debug/syncgit_cli

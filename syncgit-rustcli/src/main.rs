@@ -95,33 +95,40 @@ fn check_repo_status(repo_path: &Path) -> Result<RepoStatus, Box<dyn Error>> {
     })
 }
 
-fn display_dashboard(repos_status: &[RepoStatus]) {
+fn display_dashboard(repos_status: &[RepoStatus], show_all: bool) {
     println!("\n{}", "📊 Dashboard de Repositorios".bold().blue());
     println!("{}", "=".repeat(80).blue());
 
     let mut needs_attention = 0;
+    let mut displayed = 0;
+
     for (i, status) in repos_status.iter().enumerate() {
-        let status_icons = format!(
-            "{}{}{}",
-            if status.needs_push { "⬆️ " } else { "" },
-            if status.needs_pull { "⬇️ " } else { "" },
-            if status.has_changes { "📝" } else { "" }
-        );
+        let needs_attention = status.needs_push || status.needs_pull || status.has_changes;
+        
+        // Solo mostrar si necesita atención o si show_all es true
+        if needs_attention || show_all {
+            let status_icons = format!(
+                "{}{}{}",
+                if status.needs_push { "⬆️ " } else { "" },
+                if status.needs_pull { "⬇️ " } else { "" },
+                if status.has_changes { "📝" } else { "" }
+            );
 
-        let status_text = if status.needs_push || status.needs_pull || status.has_changes {
-            needs_attention += 1;
-            format!("{} {}", status_icons, "Necesita atención".yellow().to_string())
-        } else {
-            "✅ Sincronizado".green().to_string()
-        };
+            let status_text = if needs_attention {
+                format!("{} {}", status_icons, "Necesita atención".yellow().to_string())
+            } else {
+                "✅ Sincronizado".green().to_string()
+            };
 
-        println!(
-            "{}. {} ({}) - {}",
-            i + 1,
-            status.path.display(),
-            status.branch.cyan(),
-            status_text
-        );
+            println!(
+                "{}. {} ({}) - {}",
+                displayed + 1,
+                status.path.display(),
+                status.branch.cyan(),
+                status_text
+            );
+            displayed += 1;
+        }
     }
 
     println!("{}", "=".repeat(80).blue());
@@ -130,30 +137,48 @@ fn display_dashboard(repos_status: &[RepoStatus]) {
         needs_attention.to_string().yellow(),
         repos_status.len()
     );
+    println!("{}", "Presiona 'h' para mostrar/ocultar repositorios sincronizados".dimmed());
 }
 
 fn sync_repository(repo_path: &Path) -> Result<(), Box<dyn Error>> {
     println!("\n📂 Sincronizando: {}", repo_path.display());
     
-    // Fetch changes
+    // Fetch de cambios
     println!("⏳ Obteniendo cambios remotos...");
     run_git_command(repo_path, &["fetch", "origin"])?;
     
-    // Check for unstaged changes
+    // Verificar si hay cambios sin commitear
     let status = run_git_command(repo_path, &["status", "--porcelain"])?;
     if !status.is_empty() {
-        println!("📝 Hay cambios sin commitear, haciendo commit automático...");
-        run_git_command(repo_path, &["add", "."])?;
-        run_git_command(repo_path, &["commit", "-m", &format!("Auto-sync: {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"))])?;
+        println!("📝 Hay cambios sin commitear");
+        run_git_command(repo_path, &["add", "-A"])?;
+        
+        // Pedir mensaje de commit
+        println!("\n💭 Ingresa el mensaje del commit (o presiona Enter para usar el mensaje por defecto):");
+        let mut message = String::new();
+        io::stdin().read_line(&mut message)?;
+        let message = message.trim();
+        
+        let commit_message = if message.is_empty() {
+            format!("Auto-sync: {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"))
+        } else {
+            message.to_string()
+        };
+        
+        println!("⏳ Haciendo commit...");
+        run_git_command(repo_path, &["commit", "-m", &commit_message])?;
     }
     
-    // Pull with rebase
+    // Pull con rebase después de manejar los cambios locales
     println!("⏳ Actualizando cambios locales...");
     run_git_command(repo_path, &["pull", "--rebase", "origin"])?;
     
-    // Push changes
-    println!("⏳ Subiendo cambios...");
-    run_git_command(repo_path, &["push", "origin"])?;
+    // Verificar si hay commits para hacer push
+    let needs_push = !run_git_command(repo_path, &["rev-list", "@{u}..HEAD"])?.is_empty();
+    if needs_push {
+        println!("⏳ Subiendo cambios...");
+        run_git_command(repo_path, &["push", "origin"])?;
+    }
     
     println!("✅ Sincronización completada");
     Ok(())
@@ -162,9 +187,9 @@ fn sync_repository(repo_path: &Path) -> Result<(), Box<dyn Error>> {
 fn show_menu() -> Result<(), Box<dyn Error>> {
     loop {
         println!("\n{}", "=== SyncGit Menu ===".bold().blue());
-        println!("1. Modo Local (Sincronizar repositorio actual)");
-        println!("2. Modo Global (Dashboard de todos los repositorios)");
-        println!("3. Salir");
+        println!("1) Local");
+        println!("2) Global Dashboard");
+        println!("3) Salir");
         print!("\nSelecciona una opción (1-3): ");
         io::stdout().flush()?;
         
@@ -205,25 +230,42 @@ fn show_menu() -> Result<(), Box<dyn Error>> {
                 }
                 pb.finish_with_message("Análisis completado");
 
-                display_dashboard(&repos_status);
-                
-                println!("\n¿Deseas sincronizar algún repositorio? (s/n)");
-                let mut input = String::new();
-                io::stdin().read_line(&mut input)?;
-                
-                if input.trim().to_lowercase() == "s" {
-                    println!("Ingresa el número del repositorio a sincronizar:");
+                let mut show_all = false;
+                loop {
+                    display_dashboard(&repos_status, show_all);
+                    
+                    println!("\nOpciones:");
+                    println!("  - Ingresa el número del repositorio para sincronizarlo");
+                    println!("  - Presiona 'h' para mostrar/ocultar repositorios sincronizados");
+                    println!("  - Presiona 'q' para volver al menú principal");
+                    print!("\nSelecciona una opción: ");
+                    io::stdout().flush()?;
+                    
                     let mut input = String::new();
                     io::stdin().read_line(&mut input)?;
+                    let input = input.trim();
                     
-                    if let Ok(index) = input.trim().parse::<usize>() {
-                        if index > 0 && index <= repos_status.len() {
-                            sync_repository(&repos_status[index - 1].path)?;
-                        } else {
-                            println!("❌ Número de repositorio inválido");
+                    match input {
+                        "h" => {
+                            show_all = !show_all;
+                            continue;
+                        },
+                        "q" => break,
+                        _ => {
+                            if let Ok(index) = input.parse::<usize>() {
+                                let displayed_repos: Vec<_> = repos_status.iter()
+                                    .filter(|s| show_all || s.needs_push || s.needs_pull || s.has_changes)
+                                    .collect();
+                                
+                                if index > 0 && index <= displayed_repos.len() {
+                                    sync_repository(&displayed_repos[index - 1].path)?;
+                                } else {
+                                    println!("❌ Número de repositorio inválido");
+                                }
+                            } else {
+                                println!("❌ Entrada inválida");
+                            }
                         }
-                    } else {
-                        println!("❌ Entrada inválida");
                     }
                 }
             },
