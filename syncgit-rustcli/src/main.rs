@@ -4,14 +4,14 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::net::TcpStream;
 
-// Busca hacia arriba hasta encontrar el .git
+// Search upwards until finding .git
 fn find_git_root(mut dir: PathBuf) -> Option<PathBuf> {
     loop {
         if dir.join(".git").is_dir() {
             return Some(dir);
         }
         if !dir.pop() {
-            return None; // Llegamos a la raíz del sistema y no hay repo Git
+            return None; // Reached system root and no Git repo found
         }
     }
 }
@@ -20,10 +20,27 @@ fn get_github_token() -> Option<String> {
     env::var("GITHUB_TOKEN").ok()
 }
 
+fn check_internet_connection() -> bool {
+    // Try to connect to a DNS server (8.8.8.8) on port 53
+    TcpStream::connect("8.8.8.8:53").is_ok()
+}
+
+fn center_text(text: &str) -> String {
+    let width = term_size::dimensions().map(|(w, _)| w).unwrap_or(80);
+    let padding = (width.saturating_sub(text.len())) / 2;
+    format!("{}{}", " ".repeat(padding), text)
+}
+
+fn print_separator() {
+    // Get terminal width, default to 80 if can't be determined
+    let width = term_size::dimensions().map(|(w, _)| w).unwrap_or(80);
+    println!("{}", "─".repeat(width));
+}
+
 fn run(cmd: &str, args: &[&str]) -> bool {
     let mut command = Command::new(cmd);
     
-    // Si es un comando git y tenemos token, lo usamos
+    // If it's a git command and we have a token, use it
     if cmd == "git" && get_github_token().is_some() {
         let token = get_github_token().unwrap();
         command.env("GITHUB_TOKEN", token);
@@ -39,25 +56,20 @@ fn run(cmd: &str, args: &[&str]) -> bool {
     match status {
         Ok(s) if s.success() => true,
         _ => {
-            eprintln!("❌ Error al ejecutar: {} {:?}", cmd, args);
+            eprintln!("❌ Error executing: {} {:?}", cmd, args);
             false
         }
     }
 }
 
-fn check_internet_connection() -> bool {
-    // Intentamos conectar a un servidor DNS (8.8.8.8) en el puerto 53
-    TcpStream::connect("8.8.8.8:53").is_ok()
-}
-
 fn main() {
-    let current = env::current_dir().expect("❌ No se pudo obtener el directorio actual");
+    let current = env::current_dir().expect("❌ Could not get current directory");
     let git_root = find_git_root(current.clone());
 
     let repo_path = match git_root {
         Some(path) => path,
         None => {
-            eprintln!("❌ No estás dentro de un repositorio Git");
+            eprintln!("❌ You are not inside a Git repository");
             return;
         }
     };
@@ -65,21 +77,23 @@ fn main() {
     let repo_name = repo_path.file_name()
         .unwrap_or_else(|| std::ffi::OsStr::new("")).to_string_lossy();
 
-    println!("📁 Repositorio raíz: {}", repo_name);
-    println!("🗂️  Ruta: {}", repo_path.display());
-    println!("----------------------------------");
+    println!("{}", center_text(&format!("📁 Repository root: {}", repo_name)));
+    println!("{}", center_text(&format!("🗂️  Path: {}", repo_path.display())));
+    print_separator();
 
-    println!("🔍 Estado del repositorio:");
+    println!("{}", center_text("🔍 Repository status:"));
     if !run("git", &["status", "-sb"]) {
         return;
     }
+    print_separator();
 
-    println!("⬇️  Haciendo pull...");
+    println!("{}", center_text("⬇️  Pulling changes..."));
     if !run("git", &["pull"]) {
         return;
     }
+    print_separator();
 
-    println!("📦 Verificando cambios locales...");
+    println!("{}", center_text("📦 Checking local changes..."));
     let has_changes = !Command::new("git")
         .args(&["diff", "--quiet"])
         .status()
@@ -96,34 +110,36 @@ fn main() {
 
     if has_changes {
         if run("git", &["add", "."]) {
-            println!("✅ Cambios añadidos");
+            println!("{}", center_text("✅ Changes added"));
         } else {
             return;
         }
     } else {
-        println!("🟢 No hay cambios que añadir");
+        println!("{}", center_text("🟢 No changes to add"));
         return;
     }
+    print_separator();
 
-    print!("✏️  Escribe tu mensaje de commit: ");
+    print!("{}", center_text("✏️  Enter your commit message: "));
     io::stdout().flush().unwrap();
     let mut mensaje = String::new();
     io::stdin().read_line(&mut mensaje).unwrap();
     let mensaje = mensaje.trim();
 
     if mensaje.is_empty() {
-        eprintln!("⚠️  El mensaje no puede estar vacío");
+        eprintln!("{}", center_text("⚠️  Message cannot be empty"));
         return;
     }
 
     if !run("git", &["commit", "-m", mensaje]) {
         return;
     }
+    print_separator();
 
-    println!("⬆️  Haciendo push...");
+    println!("{}", center_text("⬆️  Pushing changes..."));
     if !check_internet_connection() {
-        println!("⚠️  No hay conexión a internet. Los cambios se han guardado localmente pero no se han subido.");
-        println!("    Por favor, ejecuta 'git push' manualmente cuando tengas conexión.");
+        println!("{}", center_text("⚠️  No internet connection. Changes have been saved locally but not pushed."));
+        println!("{}", center_text("    Please run 'git push' manually when you have connection."));
         return;
     }
 
