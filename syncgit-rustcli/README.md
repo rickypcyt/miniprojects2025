@@ -16,7 +16,7 @@ Una herramienta de línea de comandos para sincronizar fácilmente repositorios 
 1. Clona este repositorio:
 
    ```
-   git clone https://github.com/tu-usuario/syncgit_cli.git
+   git clone https://github.com/rickypcyt/miniprojects/syncgit_clirust.git
    cd syncgit_cli
    ```
 
