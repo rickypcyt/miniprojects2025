@@ -2,6 +2,7 @@ use std::io::{self, Write};
 use std::process::{Command, Stdio};
 use std::env;
 use std::path::{Path, PathBuf};
+use std::net::TcpStream;
 
 // Busca hacia arriba hasta encontrar el .git
 fn find_git_root(mut dir: PathBuf) -> Option<PathBuf> {
@@ -42,6 +43,11 @@ fn run(cmd: &str, args: &[&str]) -> bool {
             false
         }
     }
+}
+
+fn check_internet_connection() -> bool {
+    // Intentamos conectar a un servidor DNS (8.8.8.8) en el puerto 53
+    TcpStream::connect("8.8.8.8:53").is_ok()
 }
 
 fn main() {
@@ -115,6 +121,12 @@ fn main() {
     }
 
     println!("⬆️  Haciendo push...");
+    if !check_internet_connection() {
+        println!("⚠️  No hay conexión a internet. Los cambios se han guardado localmente pero no se han subido.");
+        println!("    Por favor, ejecuta 'git push' manualmente cuando tengas conexión.");
+        return;
+    }
+
     if let Some(token) = get_github_token() {
         let remote_url = Command::new("git")
             .args(&["config", "--get", "remote.origin.url"])

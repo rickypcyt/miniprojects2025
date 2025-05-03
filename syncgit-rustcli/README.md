@@ -9,31 +9,14 @@ Una herramienta de línea de comandos para sincronizar fácilmente repositorios 
 - 🌐 Verifica la conexión a internet antes de intentar operaciones
 - 💻 Interfaz intuitiva y amigable
 
-## Instalación
 
-### Desde el código fuente
-
-1. Clona este repositorio:
-
-   ```
-   git clone https://github.com/rickypcyt/miniprojects/syncgit_clirust.git
-   cd syncgit_cli
-   ```
-
-2. Compila con Cargo:
-
-   ```
-   cargo build --release
-   ```
-
-3. El binario ejecutable estará en `target/release/syncgit_cli`
-
-### Instalación global (opcional)
+## Instalación global 
 
 Para hacer que la herramienta esté disponible globalmente:
 
 ```
-cargo install --path .
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+cargo install syncgit
 ```
 
 ## Uso
@@ -41,7 +24,7 @@ cargo install --path .
 Simplemente ejecuta el programa en cualquier carpeta que contenga un repositorio Git:
 
 ```
-syncgit_cli
+syncgit
 ```
 
 Sigue las opciones del menú interactivo para:
