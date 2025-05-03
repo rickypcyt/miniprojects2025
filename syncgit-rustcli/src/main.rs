@@ -15,8 +15,20 @@ fn find_git_root(mut dir: PathBuf) -> Option<PathBuf> {
     }
 }
 
+fn get_github_token() -> Option<String> {
+    env::var("GITHUB_TOKEN").ok()
+}
+
 fn run(cmd: &str, args: &[&str]) -> bool {
-    let status = Command::new(cmd)
+    let mut command = Command::new(cmd);
+    
+    // Si es un comando git y tenemos token, lo usamos
+    if cmd == "git" && get_github_token().is_some() {
+        let token = get_github_token().unwrap();
+        command.env("GITHUB_TOKEN", token);
+    }
+    
+    let status = command
         .args(args)
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
@@ -63,7 +75,11 @@ fn main() {
 
     println!("📦 Verificando cambios locales...");
     let has_changes = !Command::new("git")
-        .args(&["diff", "--quiet", "--staged"])
+        .args(&["diff", "--quiet"])
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false) || !Command::new("git")
+        .args(&["diff", "--cached", "--quiet"])
         .status()
         .map(|s| s.success())
         .unwrap_or(false) || !Command::new("git")
@@ -99,5 +115,21 @@ fn main() {
     }
 
     println!("⬆️  Haciendo push...");
+    if let Some(token) = get_github_token() {
+        let remote_url = Command::new("git")
+            .args(&["config", "--get", "remote.origin.url"])
+            .output()
+            .ok()
+            .and_then(|output| String::from_utf8(output.stdout).ok())
+            .map(|url| url.trim().to_string());
+
+        if let Some(url) = remote_url {
+            let auth_url = url.replace("https://", &format!("https://{}@", token));
+            if !run("git", &["remote", "set-url", "origin", &auth_url]) {
+                return;
+            }
+        }
+    }
+    
     run("git", &["push"]);
 }
