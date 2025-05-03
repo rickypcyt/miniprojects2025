@@ -1,44 +1,42 @@
 # SyncGit CLI
 
-Una herramienta de línea de comandos para sincronizar fácilmente repositorios Git.
+A command-line tool to easily sync Git repositories.
 
-## Características
+## Features
 
-- 🔄 Sincroniza automáticamente el repositorio actual con su remoto
-- 📂 Explora y sincroniza sub-repositorios Git
-- 🌐 Verifica la conexión a internet antes de intentar operaciones
-- 💻 Interfaz intuitiva y amigable
+- 🔄 Automatically syncs the current repository with its remote
+- 📂 Explore and sync Git sub-repositories
+- 🌐 Checks internet connection before performing operations
+- 💻 Intuitive and user-friendly interface
 
+## Global Installation
 
-## Instalación global 
-
-Para hacer que la herramienta esté disponible globalmente:
+To make the tool globally available:
 
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 cargo install syncgit
 ```
 
-## Uso
+## Usage
 
-Simplemente ejecuta el programa en cualquier carpeta que contenga un repositorio Git:
+Simply run the program in any folder containing a Git repository:
 
 ```
 syncgit
 ```
 
-Sigue las opciones del menú interactivo para:
+Follow the interactive menu options to:
+- Sync the current repository
+- View and sync sub-repositories
+- Exit the program
 
-- Sincronizar el repositorio actual
-- Ver y sincronizar sub-repositorios
-- Salir del programa
+## Requirements
 
-## Requisitos
+- Rust 2021 Edition or higher
+- Internet connection to sync with remotes
+- Git installed on the system
 
-- Rust 2021 Edition o superior
-- Conexión a internet para sincronizar con remotos
-- Git instalado en el sistema
+## License
 
-## Licencia
-
-Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
+This project is licensed under the MIT License. See the `LICENSE` file for details.
