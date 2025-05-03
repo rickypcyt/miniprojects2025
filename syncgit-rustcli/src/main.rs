@@ -1,7 +1,7 @@
 use std::io::{self, Write};
 use std::process::{Command, Stdio};
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::net::TcpStream;
 
 // Search upwards until finding .git
@@ -77,6 +77,8 @@ fn main() {
     let repo_name = repo_path.file_name()
         .unwrap_or_else(|| std::ffi::OsStr::new("")).to_string_lossy();
 
+    print_separator();
+
     println!("{}", center_text(&format!("📁 Repository root: {}", repo_name)));
     println!("{}", center_text(&format!("🗂️  Path: {}", repo_path.display())));
     print_separator();
@@ -120,7 +122,7 @@ fn main() {
     }
     print_separator();
 
-    print!("{}", center_text("✏️  Enter your commit message: "));
+    print!("✏️  Enter your commit message: ");
     io::stdout().flush().unwrap();
     let mut mensaje = String::new();
     io::stdin().read_line(&mut mensaje).unwrap();
