@@ -1,17 +1,17 @@
 use std::io::{self, Write};
 use std::process::{Command, Stdio};
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::net::TcpStream;
+use std::fs;
 
-// Search upwards until finding .git
 fn find_git_root(mut dir: PathBuf) -> Option<PathBuf> {
     loop {
         if dir.join(".git").is_dir() {
             return Some(dir);
         }
         if !dir.pop() {
-            return None; // Reached system root and no Git repo found
+            return None;
         }
     }
 }
@@ -21,7 +21,6 @@ fn get_github_token() -> Option<String> {
 }
 
 fn check_internet_connection() -> bool {
-    // Try to connect to a DNS server (8.8.8.8) on port 53
     TcpStream::connect("8.8.8.8:53").is_ok()
 }
 
@@ -32,34 +31,89 @@ fn center_text(text: &str) -> String {
 }
 
 fn print_separator() {
-    // Get terminal width, default to 80 if can't be determined
     let width = term_size::dimensions().map(|(w, _)| w).unwrap_or(80);
     println!("{}", "─".repeat(width));
 }
 
 fn run(cmd: &str, args: &[&str]) -> bool {
     let mut command = Command::new(cmd);
-    
-    // If it's a git command and we have a token, use it
-    if cmd == "git" && get_github_token().is_some() {
-        let token = get_github_token().unwrap();
-        command.env("GITHUB_TOKEN", token);
+    if cmd == "git" {
+        if let Some(token) = get_github_token() {
+            command.env("GITHUB_TOKEN", token);
+        }
     }
-    
-    let status = command
-        .args(args)
+    let status = command.args(args)
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status();
 
-    match status {
-        Ok(s) if s.success() => true,
-        _ => {
-            eprintln!("❌ Error executing: {} {:?}", cmd, args);
-            false
+    matches!(status, Ok(s) if s.success())
+}
+
+fn git_repo_status(path: &Path) -> Option<(String, String)> {
+    let branch = Command::new("git")
+        .arg("-C").arg(path)
+        .args(&["symbolic-ref", "--short", "HEAD"])
+        .output().ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .unwrap_or("(no branch)".to_string());
+
+    let dirty = Command::new("git")
+        .arg("-C").arg(path)
+        .args(&["status", "--porcelain"])
+        .output().ok()
+        .map(|o| !o.stdout.is_empty()).unwrap_or(false);
+
+    let upstream = Command::new("git")
+        .arg("-C").arg(path)
+        .args(&["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
+        .output().ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok());
+
+    let (ahead, behind) = if let Some(up) = upstream {
+        let branch = branch.trim();
+        let up = up.trim();
+        let count = Command::new("git")
+            .arg("-C").arg(path)
+            .args(&["rev-list", "--left-right", "--count", &format!("{}...{}", branch, up)])
+            .output().ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or("0 0".to_string());
+        let parts: Vec<&str> = count.trim().split_whitespace().collect();
+        if parts.len() == 2 {
+            (parts[1].to_string(), parts[0].to_string())
+        } else {
+            ("0".to_string(), "0".to_string())
+        }
+    } else {
+        ("0".to_string(), "0".to_string())
+    };
+
+    let mut status = String::new();
+    if dirty { status += "📝"; }
+    if ahead != "0" { status += "⬆️"; }
+    if behind != "0" { status += "⬇️"; }
+    if status.is_empty() { status = "✅".to_string(); }
+
+    Some((branch.trim().to_string(), status))
+}
+
+fn list_child_git_repos(base: &Path) -> bool {
+    let mut found = false;
+    if let Ok(entries) = fs::read_dir(base) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() && path.join(".git").exists() {
+                found = true;
+                let dir_name = path.file_name().unwrap_or_default().to_string_lossy();
+                if let Some((branch, status)) = git_repo_status(&path) {
+                    println!("{:<30} [{:>10}] {}", dir_name, branch, status);
+                }
+            }
         }
     }
+    found
 }
 
 fn main() {
@@ -69,16 +123,21 @@ fn main() {
     let repo_path = match git_root {
         Some(path) => path,
         None => {
-            eprintln!("❌ You are not inside a Git repository");
+            // 🔄 NUEVO COMPORTAMIENTO: listar repos hijos
+            println!("{}", center_text("📦 Searching for Git repositories in subfolders..."));
+            print_separator();
+            if !list_child_git_repos(&current) {
+                eprintln!("❌ You are not inside a Git repository nor are there any Git repositories in child directories.");
+            }
             return;
         }
     };
 
+    // --- Tu flujo original aquí ---
     let repo_name = repo_path.file_name()
         .unwrap_or_else(|| std::ffi::OsStr::new("")).to_string_lossy();
 
     print_separator();
-
     println!("{}", center_text(&format!("📁 Repository root: {}", repo_name)));
     println!("{}", center_text(&format!("🗂️  Path: {}", repo_path.display())));
     print_separator();
@@ -120,8 +179,8 @@ fn main() {
         println!("{}", center_text("🟢 No changes to add"));
         return;
     }
-    print_separator();
 
+    print_separator();
     print!("✏️  Enter your commit message: ");
     io::stdout().flush().unwrap();
     let mut mensaje = String::new();
@@ -160,6 +219,7 @@ fn main() {
             }
         }
     }
-    
+
     run("git", &["push"]);
 }
+
