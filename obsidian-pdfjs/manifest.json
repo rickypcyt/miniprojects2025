@@ -1,0 +1,10 @@
+{
+	"id": "obsidian-pdfjs",
+	"name": "PDF.js Viewer",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "View PDF files in Obsidian using PDF.js from Firefox",
+	"author": "Your Name",
+	"authorUrl": "https://github.com/yourusername",
+	"isDesktopOnly": false
+} 

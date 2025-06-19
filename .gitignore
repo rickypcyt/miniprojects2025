@@ -1,3 +1,7 @@
 syncgit-rustcli/target/
 syncgit-rustcli/target/debug/syncgit_cli
 syncgit-rustcli/target/release/syncgit_cli
+obsidian-pdfjs/node_modules/
+wifimanager-rust/target/debug/
+wifimanager-rust/target/release/
+
