@@ -1,4 +1,0 @@
-numpy==1.24.3
-sounddevice==0.4.6
-pygame==2.5.0
-scipy==1.10.1 
