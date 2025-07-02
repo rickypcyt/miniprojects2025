@@ -1,11 +1,25 @@
 /*
 Simulador didáctico de una máquina de Von Neumann
 --------------------------------------------------
-- Memoria única para instrucciones y datos.
-- Ciclo fetch-decode-execute.
-- Registros: PC (program counter), ACC (acumulador), Z (flag zero).
-- Instrucciones: LOAD, ADD, SUB, STORE, PRINT, HALT, JMP, JZ, NOP.
-- Ejecución paso a paso y visualización de memoria diferenciando código y datos.
+- Modelo Von Neumann: memoria única para instrucciones y datos.
+- Ciclo fetch-decode-execute: la CPU obtiene, decodifica y ejecuta instrucciones.
+- Registros:
+    - PC (Program Counter): apunta a la siguiente instrucción a ejecutar.
+    - ACC (Acumulador): registro principal para operaciones aritméticas.
+    - Z (Zero flag): indica si el ACC es cero tras una operación.
+- Instrucciones:
+    - LOAD dir   : ACC = mem[dir]
+    - ADD dir    : ACC += mem[dir]
+    - SUB dir    : ACC -= mem[dir]
+    - STORE dir  : mem[dir] = ACC
+    - PRINT      : imprime ACC
+    - HALT       : detiene la ejecución
+    - JMP dir    : salta a dir
+    - JZ dir     : salta a dir si Z==1
+    - NOP        : no hace nada
+- Estructura de memoria:
+    - Las primeras posiciones suelen ser instrucciones (código), el resto datos.
+    - Puedes agregar etiquetas a posiciones de memoria para identificarlas.
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +28,8 @@ Simulador didáctico de una máquina de Von Neumann
 
 #define MEM_SIZE 19
 #define CODE_SIZE 8 // Primeras 8 posiciones son código, el resto datos
+#define MAX_LABELS MEM_SIZE
+#define MAX_LABEL_LEN 16
 
 // Instrucciones
 #define HALT 0
@@ -41,7 +57,11 @@ typedef struct {
     char info[64]; // Para cambios relevantes
 } StepInfo;
 
+// Etiquetas para memoria
+char mem_labels[MAX_LABELS][MAX_LABEL_LEN] = {""};
+
 // Prototipos
+void print_program(int *mem);
 void print_memory(int *mem, int pc);
 void exec_load(int *mem, int *acc, int *pc, int *z);
 void exec_add(int *mem, int *acc, int *pc, int *z);
@@ -53,6 +73,8 @@ void exec_jmp(int *mem, int *pc);
 void exec_jz(int *mem, int *pc, int z);
 void exec_nop(int *pc);
 int valid_addr(int addr);
+void set_mem_label(int addr, const char *label);
+
 // Prototipos de ejemplos
 void cargar_ejemplo_suma(int *mem, int *mem_ptr);
 void cargar_ejemplo_resta(int *mem, int *mem_ptr);
@@ -62,6 +84,7 @@ int main() {
     int memoria[MEM_SIZE] = {0}; // Memoria vacía
     int mem_ptr = 0; // Puntero para cargar instrucciones
     char input[64];
+    memset(mem_labels, 0, sizeof(mem_labels));
     printf("Simulador Von Neumann interactivo\n");
     printf("Ingrese 'help' para ver ayuda y ejemplos.\n");
     print_memory(memoria, -1);
@@ -77,8 +100,11 @@ int main() {
             printf("  clear               Limpia la memoria\n");
             printf("  exit                Sale del simulador\n");
             printf("  example <nombre>    Carga un ejemplo en memoria\n");
+            printf("  <dir>: <valor>      Escribe un dato en memoria\n");
+            printf("  <dir>: <etiqueta>   Asigna una etiqueta a una dirección\n");
             printf("\nPara cargar instrucciones:   LOAD 8\n");
             printf("Para cargar datos:           8: 5\n");
+            printf("Para etiquetar memoria:      8: resultado\n");
             printf("\nEjemplos disponibles:\n");
             printf("  example suma        Suma 2 + 2 e imprime el resultado\n");
             printf("  example resta       Resta 10 - 5 e imprime el resultado\n");
@@ -88,15 +114,24 @@ int main() {
         // Comando example
         if (strncmp(input, "example ", 8) == 0) {
             memset(memoria, 0, sizeof(memoria));
+            memset(mem_labels, 0, sizeof(mem_labels));
             mem_ptr = 0;
             if (strcmp(input+8, "suma") == 0) {
                 cargar_ejemplo_suma(memoria, &mem_ptr);
+                set_mem_label(8, "dato1");
+                set_mem_label(9, "dato2");
+                set_mem_label(10, "resultado");
                 printf("Ejemplo 'suma' cargado.\n");
             } else if (strcmp(input+8, "resta") == 0) {
                 cargar_ejemplo_resta(memoria, &mem_ptr);
+                set_mem_label(8, "minuendo");
+                set_mem_label(9, "sustraendo");
+                set_mem_label(10, "resultado");
                 printf("Ejemplo 'resta' cargado.\n");
             } else if (strcmp(input+8, "bucle") == 0) {
                 cargar_ejemplo_bucle(memoria, &mem_ptr);
+                set_mem_label(8, "contador");
+                set_mem_label(9, "decremento");
                 printf("Ejemplo 'bucle' cargado.\n");
             } else {
                 printf("Ejemplo no reconocido. Usa 'help' para ver la lista.\n");
@@ -109,6 +144,7 @@ int main() {
         // Comando clear
         if (strcmp(input, "clear") == 0) {
             memset(memoria, 0, sizeof(memoria));
+            memset(mem_labels, 0, sizeof(mem_labels));
             mem_ptr = 0;
             printf("Memoria limpiada.\n");
             print_memory(memoria, -1);
@@ -122,10 +158,13 @@ int main() {
             printf("\n--- EJECUCIÓN ---\n");
             while (running && step_count < MAX_STEPS) {
                 print_memory(memoria, pc);
-                printf("\nPC: %d | ACC: %d | Z: %d\n", pc, acc, z);
                 int instr = memoria[pc];
                 int arg = (instr_length[instr] == 2) ? memoria[pc+1] : -1;
+                printf("\nFETCH: instrucción %s, argumento %d\n", (instr >= 0 && instr <= 8) ? instr_names[instr] : "???", arg);
+                printf("DECODE: preparándose para ejecutar %s\n", (instr >= 0 && instr <= 8) ? instr_names[instr] : "???");
+                printf("Actual:  PC=%d, ACC=%d, Z=%d\n", pc, acc, z);
                 char info[64] = "";
+                // EXECUTE
                 switch (instr) {
                     case LOAD:
                         snprintf(info, sizeof(info), "ACC <- mem[%d] (%d)", arg, valid_addr(arg) ? memoria[arg] : 0);
@@ -166,6 +205,7 @@ int main() {
                         snprintf(info, sizeof(info), "Instrucción desconocida");
                         running = 0;
                 }
+                printf("Después: PC=%d, ACC=%d, Z=%d\n", pc, acc, z);
                 steps[step_count].pc = pc;
                 steps[step_count].instr = instr;
                 steps[step_count].arg = arg;
@@ -195,19 +235,30 @@ int main() {
             }
             // Limpiar memoria automáticamente
             memset(memoria, 0, sizeof(memoria));
+            memset(mem_labels, 0, sizeof(mem_labels));
             mem_ptr = 0;
             printf("\nMemoria limpiada automáticamente tras la ejecución.\n");
             print_memory(memoria, -1);
             continue;
         }
-        // Cargar dato: formato "N: V"
+        // Cargar dato: formato "N: V" o "N: etiqueta"
         int pos, val;
+        char label[MAX_LABEL_LEN];
         if (sscanf(input, "%d: %d", &pos, &val) == 2) {
             if (valid_addr(pos)) {
                 memoria[pos] = val;
                 printf("Dato %d guardado en memoria[%d]\n", val, pos);
             } else {
                 printf("Dirección fuera de rango.\n");
+            }
+            print_memory(memoria, -1);
+            continue;
+        } else if (sscanf(input, "%d: %15s", &pos, label) == 2) {
+            if (valid_addr(pos)) {
+                set_mem_label(pos, label);
+                printf("Etiqueta '%s' asignada a memoria[%d]\n", label, pos);
+            } else {
+                printf("Dirección fuera de rango para etiqueta.\n");
             }
             print_memory(memoria, -1);
             continue;
@@ -272,24 +323,34 @@ void print_program(int *mem) {
     }
 }
 
-// Modificar print_memory para llamar a print_program antes de mostrar la memoria
+// Imprime la memoria, diferenciando código y datos, y resaltando el PC, mostrando etiquetas
 void print_memory(int *mem, int pc) {
     print_program(mem);
     printf("\nMemoria:\n");
-    for (int i = 0; i < MEM_SIZE; i++) {
-        if (i < CODE_SIZE) {
-            // Código
-            if (i == pc) printf("-> "); else printf("   ");
-            printf("[%2d] ", i);
-            // Mostrar instrucción o argumento
-            int is_instr = 0;
-            for (int j = 0; j < 9; j++) if (mem[i] == j && (i % 2 == 0 || mem[i] == HALT || mem[i] == PRINT || mem[i] == NOP)) is_instr = 1;
-            if (is_instr) printf("%s\n", instr_names[mem[i]]);
-            else printf("arg: %d\n", mem[i]);
-        } else {
-            // Datos
-            printf("   [%2d] DATO: %d\n", i, mem[i]);
-        }
+    printf("  Código:\n");
+    for (int i = 0; i < CODE_SIZE; i++) {
+        if (i == pc) printf("-> "); else printf("   ");
+        printf("[%2d] ", i);
+        int is_instr = 0;
+        for (int j = 0; j < 9; j++) if (mem[i] == j && (i % 2 == 0 || mem[i] == HALT || mem[i] == PRINT || mem[i] == NOP)) is_instr = 1;
+        if (is_instr) printf("%s", instr_names[mem[i]]);
+        else printf("arg: %d", mem[i]);
+        if (strlen(mem_labels[i]) > 0) printf("   // %s", mem_labels[i]);
+        printf("\n");
+    }
+    printf("  Datos:\n");
+    for (int i = CODE_SIZE; i < MEM_SIZE; i++) {
+        printf("   [%2d] DATO: %d", i, mem[i]);
+        if (strlen(mem_labels[i]) > 0) printf("   // %s", mem_labels[i]);
+        printf("\n");
+    }
+}
+
+// Etiquetas para memoria
+void set_mem_label(int addr, const char *label) {
+    if (valid_addr(addr)) {
+        strncpy(mem_labels[addr], label, MAX_LABEL_LEN-1);
+        mem_labels[addr][MAX_LABEL_LEN-1] = '\0';
     }
 }
 
@@ -298,8 +359,9 @@ int valid_addr(int addr) {
     return addr >= 0 && addr < MEM_SIZE;
 }
 
-// Instrucciones modulares
+// Instrucciones modulares con comentarios didácticos
 void exec_load(int *mem, int *acc, int *pc, int *z) {
+    // Carga el valor de memoria en la dirección 'addr' dentro del acumulador
     int addr = mem[*pc + 1];
     if (!valid_addr(addr)) { printf("LOAD: Dirección inválida %d\n", addr); exit(1); }
     *acc = mem[addr];
@@ -307,6 +369,7 @@ void exec_load(int *mem, int *acc, int *pc, int *z) {
     *pc += instr_length[LOAD];
 }
 void exec_add(int *mem, int *acc, int *pc, int *z) {
+    // Suma el valor de memoria en la dirección 'addr' al acumulador
     int addr = mem[*pc + 1];
     if (!valid_addr(addr)) { printf("ADD: Dirección inválida %d\n", addr); exit(1); }
     *acc += mem[addr];
@@ -314,6 +377,7 @@ void exec_add(int *mem, int *acc, int *pc, int *z) {
     *pc += instr_length[ADD];
 }
 void exec_sub(int *mem, int *acc, int *pc, int *z) {
+    // Resta el valor de memoria en la dirección 'addr' al acumulador
     int addr = mem[*pc + 1];
     if (!valid_addr(addr)) { printf("SUB: Dirección inválida %d\n", addr); exit(1); }
     *acc -= mem[addr];
@@ -321,31 +385,37 @@ void exec_sub(int *mem, int *acc, int *pc, int *z) {
     *pc += instr_length[SUB];
 }
 void exec_store(int *mem, int *acc, int *pc, int *z) {
+    // Guarda el valor del acumulador en la dirección 'addr' de memoria
     int addr = mem[*pc + 1];
     if (!valid_addr(addr)) { printf("STORE: Dirección inválida %d\n", addr); exit(1); }
     mem[addr] = *acc;
     *pc += instr_length[STORE];
 }
 void exec_print(int *mem, int *acc, int *pc, int *z) {
+    // Imprime el valor actual del acumulador
     printf("PRINT: ACC = %d\n", *acc);
     *pc += instr_length[PRINT];
 }
 void exec_halt(int *running) {
+    // Detiene la ejecución del programa
     printf("HALT: Parando ejecución.\n");
     *running = 0;
 }
 void exec_jmp(int *mem, int *pc) {
+    // Salta a la dirección especificada
     int addr = mem[*pc + 1];
     if (!valid_addr(addr)) { printf("JMP: Dirección inválida %d\n", addr); exit(1); }
     *pc = addr;
 }
 void exec_jz(int *mem, int *pc, int z) {
+    // Salta a la dirección especificada si el flag Z está activo (ACC == 0)
     int addr = mem[*pc + 1];
     if (!valid_addr(addr)) { printf("JZ: Dirección inválida %d\n", addr); exit(1); }
     if (z) *pc = addr;
     else *pc += instr_length[JZ];
 }
 void exec_nop(int *pc) {
+    // No hace nada, solo avanza el PC
     printf("NOP: No hace nada.\n");
     *pc += instr_length[NOP];
 }
