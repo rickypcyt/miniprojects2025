@@ -94,6 +94,33 @@ void print_with_commas(unsigned long long n) {
     printf("%s", out);
 }
 
+// Función para imprimir números con comas y decimales
+void print_with_commas_double(double n) {
+    unsigned long long int_part = (unsigned long long)n;
+    double frac_part = n - (double)int_part;
+    char buf[64];
+    char out[64];
+    sprintf(buf, "%llu", int_part);
+    int len = strlen(buf);
+    int j = 0;
+    for (int i = 0; i < len; i++) {
+        out[j++] = buf[i];
+        if (((len - i - 1) % 3 == 0) && (i != len - 1)) {
+            out[j++] = ',';
+        }
+    }
+    out[j] = '\0';
+    if (fabs(frac_part) > 1e-9) { // Solo mostrar decimales si hay parte fraccionaria
+        // 6 decimales
+        char fracbuf[16];
+        sprintf(fracbuf, "%.6f", frac_part);
+        // Elimina el 0 antes del punto decimal
+        printf("%s%s", out, &fracbuf[1]);
+    } else {
+        printf("%s", out);
+    }
+}
+
 // Devuelve el exponente si n es potencia exacta de 2, si no devuelve -1
 typedef struct { int is_exact; double exp; } Potencia2Result;
 Potencia2Result potencia2(unsigned long long n) {
@@ -141,7 +168,9 @@ void convertir(long long cantidad, const char *unidad) {
     int n_bits = sizeof(bits_eq) / sizeof(bits_eq[0]);
     for (int i = 0; i < n_bits; i++) {
         Potencia2Result pot = potencia2((unsigned long long)(bits_eq[i].valor));
-        printf("  %lld %s = %.6f %s (%s)", cantidad, unidad, bits_eq[i].valor, bits_eq[i].unidad, bits_eq[i].nombre);
+        printf("  %lld %s = ", cantidad, unidad);
+        print_with_commas_double(bits_eq[i].valor);
+        printf(" %s (%s)", bits_eq[i].unidad, bits_eq[i].nombre);
         if (bits_eq[i].valor >= 1.0) {
             if (pot.is_exact) {
                 printf(" = 2^%.0f", pot.exp);
@@ -167,7 +196,9 @@ void convertir(long long cantidad, const char *unidad) {
     int n_bytes = sizeof(bytes_eq) / sizeof(bytes_eq[0]);
     for (int i = 0; i < n_bytes; i++) {
         Potencia2Result pot = potencia2((unsigned long long)(bytes_eq[i].valor));
-        printf("  %lld %s = %.6f %s (%s)", cantidad, unidad, bytes_eq[i].valor, bytes_eq[i].unidad, bytes_eq[i].nombre);
+        printf("  %lld %s = ", cantidad, unidad);
+        print_with_commas_double(bytes_eq[i].valor);
+        printf(" %s (%s)", bytes_eq[i].unidad, bytes_eq[i].nombre);
         if (bytes_eq[i].valor >= 1.0) {
             if (pot.is_exact) {
                 printf(" = 2^%.0f", pot.exp);
